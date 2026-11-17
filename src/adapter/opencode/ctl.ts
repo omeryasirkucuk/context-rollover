@@ -5,7 +5,7 @@ import { estimateTokens } from "../../core/tokens"
 import { showText, statusText, ERR_CTL } from "../../core/messages"
 import { parseCommand, validateSettings } from "../../core/commands"
 import { effectiveThreshold } from "../../core/threshold"
-import { loadConfig, withSessionMode } from "../../core/config"
+import { loadConfig, withSessionSettings } from "../../core/config"
 import { contextInfoFor, ensureState } from "./hooks"
 import type { LedgerLine, NMessage, RolloverConfig, SessionState } from "../../core/types"
 import type { StorePort } from "../../core/ports"
@@ -47,7 +47,7 @@ async function executeCtl(deps: CtlDeps, sid: string, text: string): Promise<str
       settings: { ...current.settings, enabled: parsed.kind === "enable" },
     }
     await deps.store.writeState(sid, updated)
-    return statusFor(deps, withSessionMode(cfg, updated), updated, sid, await deps.store.readLedger(sid))
+    return statusFor(deps, withSessionSettings(cfg, updated), updated, sid, await deps.store.readLedger(sid))
   }
 
   // Settings commands (<N>, -n) imply activation (user ruling 2026-11-17):
@@ -70,12 +70,12 @@ async function executeCtl(deps: CtlDeps, sid: string, text: string): Promise<str
     settings: { ...current.settings, ...validated.settings, enabled: true },
   }
   await deps.store.writeState(sid, updated)
-  return statusFor(deps, withSessionMode(cfg, updated), updated, sid, await deps.store.readLedger(sid))
+  return statusFor(deps, withSessionSettings(cfg, updated), updated, sid, await deps.store.readLedger(sid))
 }
 
 async function readStatus(deps: CtlDeps, cfg: RolloverConfig, sid: string): Promise<string> {
   const state = await ensureState(deps.store, sid)
-  return statusFor(deps, withSessionMode(cfg, state), state, sid, await deps.store.readLedger(sid))
+  return statusFor(deps, withSessionSettings(cfg, state), state, sid, await deps.store.readLedger(sid))
 }
 
 function statusFor(deps: CtlDeps, cfg: RolloverConfig, state: SessionState, sid: string, lines: LedgerLine[]): string {

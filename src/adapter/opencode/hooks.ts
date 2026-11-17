@@ -11,7 +11,7 @@ import { decideSwap } from "../../core/swapDecision"
 import { freezeRollover, buildViewPlan, hasOpenTools } from "../../core/view"
 import { effectiveThreshold } from "../../core/threshold"
 import { estimateTokens, estimateMessageTokens } from "../../core/tokens"
-import { loadConfig, withSessionMode } from "../../core/config"
+import { loadConfig, withSessionSettings } from "../../core/config"
 import { metricEvent } from "../../core/metrics"
 import { rolloverToast } from "../../core/messages"
 import { createScheduler, isCaughtUp } from "./scheduler"
@@ -175,7 +175,7 @@ export async function runTransform(deps: HookDeps, event: { messages: unknown[];
     // toggled falls back to them — and the built-in default is now off.
     // Fresh sessions are only materialized when active.
     const st0 = await deps.store.readState(sidResolved)
-    const cfg = withSessionMode(getConfig(deps, sidResolved), st0)
+    const cfg = withSessionSettings(getConfig(deps, sidResolved), st0)
     const msgs = normalizeMessages(raw)
     deps.lastMessages.set(sidResolved, msgs)
 
@@ -298,7 +298,7 @@ export async function runImmediateSwap(
   notify: (text: string) => Promise<void>,
 ): Promise<string> {
   const st = await deps.store.readState(sid)
-  const cfg = withSessionMode(getConfig(deps, sid), st)
+  const cfg = withSessionSettings(getConfig(deps, sid), st)
   if (cfg.mode !== "auto") return ""
   if (!st) return ""
   const msgs = deps.lastMessages.get(sid)
@@ -360,7 +360,7 @@ export function createHookDeps(ctx: Context): HookDeps {
       // Session-aware mode: the per-session `/rollover on|off` toggle wins
       // over the config layers (fresh sessions fall back to them — off).
       const st = await store.readState(sid).catch(() => null)
-      return withSessionMode(cfg, st)
+      return withSessionSettings(cfg, st)
     },
     getMessages: (sid) => lastMessages.get(sid),
     getState: (sid) => store.readState(sid),

@@ -94,6 +94,11 @@ export interface SessionSettings {
   thresholdTokens?: number
   tailN?: number
   /**
+   * Per-session budget for the rendered <rollover_context> block. Written by
+   * `/rollover --render <N>`; wins over every config layer for this session.
+   */
+  renderBudgetTokens?: number
+  /**
    * Per-session opt-in switch (2026-11-17). true → the full auto pipeline
    * runs in this session; false → the session is fully off; absent → fall
    * back to the config layers (global → project → env), whose built-in

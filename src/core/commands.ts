@@ -5,7 +5,7 @@ export type ParsedCommand =
   | { kind: "show"; raw?: boolean }
   | { kind: "enable" }
   | { kind: "disable" }
-  | { kind: "settings"; thresholdTokens?: number; tailN?: number }
+  | { kind: "settings"; thresholdTokens?: number; tailN?: number; renderBudgetTokens?: number }
   | { kind: "error"; message: string }
 
 export interface ValidateOpts {
@@ -14,9 +14,15 @@ export interface ValidateOpts {
   tailMaxN: number
 }
 
-export type ValidateResult = { ok: true; settings: { thresholdTokens?: number; tailN?: number } } | { ok: false; message: string }
+export type ValidateResult =
+  | { ok: true; settings: { thresholdTokens?: number; tailN?: number; renderBudgetTokens?: number } }
+  | { ok: false; message: string }
 
 const MULTIPLIERS: Record<string, number> = { k: 1000, m: 1000000 }
+
+// Below this the render cannot even fit the shell text plus user corrections.
+const RENDER_BUDGET_MIN_TOKENS = 1_000
+const RENDER_BUDGET_ERROR = "Render budget must be at least 1k."
 
 function parseNumberToken(tok: string): number | null {
   const m = tok.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*([km]?)$/)
@@ -44,6 +50,7 @@ export function parseCommand(input: string): ParsedCommand {
 
   let thresholdTokens: number | undefined
   let tailN: number | undefined
+  let renderBudgetTokens: number | undefined
   let i = 0
   while (i < tokens.length) {
     const t = tokens[i]
@@ -57,6 +64,14 @@ export function parseCommand(input: string): ParsedCommand {
       i += 2
       continue
     }
+    if (t === "--render") {
+      const v = tokens[i + 1]
+      const n = v === undefined ? null : parseNumberToken(v)
+      if (n === null || renderBudgetTokens !== undefined) return { kind: "error", message: RENDER_BUDGET_ERROR }
+      renderBudgetTokens = n
+      i += 2
+      continue
+    }
     const num = parseNumberToken(t)
     if (num === null) return { kind: "error", message: "Threshold must be at least 20k." }
     if (thresholdTokens !== undefined) return { kind: "error", message: "Threshold must be at least 20k." }
@@ -67,16 +82,16 @@ export function parseCommand(input: string): ParsedCommand {
   if (tailN !== undefined && (!Number.isInteger(tailN) || tailN < 0)) {
     return { kind: "error", message: "n must be between 0 and 20." }
   }
-  if (thresholdTokens === undefined && tailN === undefined) {
+  if (thresholdTokens === undefined && tailN === undefined && renderBudgetTokens === undefined) {
     return { kind: "error", message: "Threshold must be at least 20k." }
   }
-  return { kind: "settings", thresholdTokens, tailN }
+  return { kind: "settings", thresholdTokens, tailN, renderBudgetTokens }
 }
 
 export function validateSettings(parsed: ParsedCommand, opts: ValidateOpts): ValidateResult {
   if (parsed.kind === "error") return { ok: false, message: parsed.message }
   if (parsed.kind !== "settings") return { ok: false, message: "Threshold must be at least 20k." }
-  const settings: { thresholdTokens?: number; tailN?: number } = {}
+  const settings: { thresholdTokens?: number; tailN?: number; renderBudgetTokens?: number } = {}
   if (parsed.thresholdTokens !== undefined) {
     if (parsed.thresholdTokens < opts.thresholdMinTokens) {
       return { ok: false, message: `Threshold must be at least ${formatTokens(opts.thresholdMinTokens)}.` }
@@ -91,6 +106,12 @@ export function validateSettings(parsed: ParsedCommand, opts: ValidateOpts): Val
       return { ok: false, message: `n must be between 0 and ${opts.tailMaxN}.` }
     }
     settings.tailN = parsed.tailN
+  }
+  if (parsed.renderBudgetTokens !== undefined) {
+    if (parsed.renderBudgetTokens < RENDER_BUDGET_MIN_TOKENS) {
+      return { ok: false, message: RENDER_BUDGET_ERROR }
+    }
+    settings.renderBudgetTokens = parsed.renderBudgetTokens
   }
   return { ok: true, settings }
 }

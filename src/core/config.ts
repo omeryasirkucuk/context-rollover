@@ -94,11 +94,17 @@ export function loadConfig(input: LoadConfigEnv): RolloverConfig {
  * auto pipeline in that session, false disables it entirely, and an absent
  * flag (the fresh-session state) falls back to the config mode (default: off).
  */
-export function withSessionMode(
+/** Merges the session's /rollover settings over the config layers. */
+export function withSessionSettings(
   cfg: RolloverConfig,
-  st: { settings: { enabled?: boolean } } | null | undefined,
+  st: { settings: { enabled?: boolean; renderBudgetTokens?: number } } | null | undefined,
 ): RolloverConfig {
   const enabled = st?.settings.enabled
-  if (enabled === undefined) return cfg
-  return { ...cfg, mode: enabled ? "auto" : "off" }
+  const renderBudgetTokens = st?.settings.renderBudgetTokens
+  if (enabled === undefined && renderBudgetTokens === undefined) return cfg
+  return {
+    ...cfg,
+    ...(enabled !== undefined ? { mode: enabled ? ("auto" as const) : ("off" as const) } : {}),
+    ...(renderBudgetTokens !== undefined ? { renderBudgetTokens } : {}),
+  }
 }
