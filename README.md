@@ -31,6 +31,10 @@ indefinitely without losing decisions, corrections, or open work.
              (12 rules, 0 LLM)   (small model)  (append-only)  (budgeted render)
 ```
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/omeryasirkucuk/context-rollover/main/docs/rollover-flow.png" alt="Context grows to the threshold, then rolls over; pipeline: conversation → extraction gate → memory ledger → context swap — same session continues" width="720">
+</p>
+
 - **Extraction gate** — before any model call, the pending turn is classified
   by 12 deterministic first-match rules (correction, standing instruction,
   open item, completion, decision, constraint, task, process start, closure,
