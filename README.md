@@ -13,6 +13,8 @@ into a compact ledger summary — rendered as `<rollover_context>` — instead o
 auto-compacting. Fail-open by design: every failure path keeps the
 conversation intact.
 
+<img src="https://raw.githubusercontent.com/omeryasirkucuk/context-rollover/main/docs/rollover.png" alt="Without rollover: growing context, forced compaction, lost continuity. With rollover: controlled context, preserved knowledge, continuous sessions." width="720">
+
 </div>
 
 ## Why
