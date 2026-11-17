@@ -454,7 +454,7 @@ Earlier conversation history was replaced by this record to save context. Treat 
 </rollover_context>
 ```
 
-Paketleme (core/packer.ts), bütçe cfg.renderBudgetTokens (sabit şablon metni dahil), öncelik sırası:
+Paketleme (core/packer.ts), bütçe cfg.renderBudgetTokens (sabit şablon metni dahil; session ayarı `--render <N>` config katmanlarını geçer), öncelik sırası:
 1. Tüm geçerli user_correction kayıtları
 2. decision kayıtları, yeniden eskiye
 3. open_item kayıtları, yalnızca epoch >= epochAtSwap - 1 olanlar
@@ -502,9 +502,10 @@ rollover_ctl custom tool'u `args: string` alır. Hedef session = çağıran sess
 | off | Bu session'da rollover'ı kapat. Zaten kapalıysa değişiklik yapmaz |
 | `<N>` veya `<N>k` veya `<N>m` | Bu session'ın eşiğini ayarla (100k = 100000, 1.5m = 1500000). Session kapalıysa ayrıca açar (enabled: true); açıksa yalnızca eşiği günceller. Kalıcı |
 | `-n <int>` | Tail boyutunu ayarla. Eşik komutuyla aynı aktivasyon davranışı: kapalıysa açar. Kalıcı |
+| `--render <N>` | Render bütçesini ayarla (renderBudgetTokens; `10k`, `1.5m` veya düz sayı). Eşik komutuyla aynı aktivasyon davranışı: kapalıysa açar. Kalıcı |
 | `100k -n 5` | İkisi birlikte; kapalıysa açar, açıksa verilen değerleri günceller |
 
-Doğrulama (hata durumunda hiçbir ayar değişmez): eşik < thresholdMinTokens → `Eşik en az 20k olmalı.`; eşik > model limiti → `Eşik model limitini (1M) aşamaz.`; `-n < 0 veya > tailMaxN` → `n 0 ile 20 arasında olmalı.`. Ayarlar state.settings'e yazılır.
+Doğrulama (hata durumunda hiçbir ayar değişmez): eşik < thresholdMinTokens → `Eşik en az 20k olmalı.`; eşik > model limiti → `Eşik model limitini (1M) aşamaz.`; `-n < 0 veya > tailMaxN` → `n 0 ile 20 arasında olmalı.`; `--render < 1k` → `Render bütçesi en az 1k olmalı.`. Ayarlar state.settings'e yazılır.
 
 ### 9.3 status çıktısı (İngilizce, sabit format)
 

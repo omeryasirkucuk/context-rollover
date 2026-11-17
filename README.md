@@ -70,7 +70,7 @@ Updates: `opencode plugin update context-rollover`.
 | `mode` | `"off" \| "metrics_only" \| "auto"` | `"auto"` | `off` disables everything; `metrics_only` records metrics without swapping; `auto` is full behavior |
 | `thresholdTokens` | number | *computed* | Swap threshold; computed from the model's context limit (`thresholdRatio`, capped/floored) when omitted |
 | `tailN` | number | `0` | Prompts kept verbatim after a swap (`0–20`) |
-| `renderBudgetTokens` | number | `4000` | Token budget for the rendered `<rollover_context>` block |
+| `renderBudgetTokens` | number | `4000` | Token budget for the rendered `<rollover_context>` block (per-session override: `/rollover --render 10k`) |
 | `extractionModel` | `"provider/model"` | *small model* | Model used for extraction; falls back to the session model |
 | `consolidateAfterRecords` | number | `40` | Run consolidation once the ledger holds this many active records |
 | `extractionGate` | boolean | `true` | `false` restores extraction on every idle (pre-gate behavior) |
@@ -84,6 +84,7 @@ Updates: `opencode plugin update context-rollover`.
 | `/rollover 80k` | Set per-session threshold (validated against the model limit) |
 | `/rollover -n 5` | Tail prompts kept verbatim after a swap (`0–20`) |
 | `/rollover 200k -n 5` | Both together — threshold and tail in one command |
+| `/rollover --render 10k` | Set the per-session render budget for the `<rollover_context>` block (min `1k`) |
 | `/rollover on` · `/rollover off` | Per-session opt-in/out of the full pipeline (overrides every config layer) |
 
 ## Metrics
