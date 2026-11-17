@@ -2,11 +2,11 @@
 import { activeRecords } from "../../core/ledger"
 import { packLedger } from "../../core/packer"
 import { estimateTokens } from "../../core/tokens"
-import { showText, statusText, ERR_CTL } from "../../core/messages"
+import { showText, statusText, MSG_ACTIVATED, MSG_ALREADY_ACTIVE, ERR_CTL } from "../../core/messages"
 import { parseCommand, validateSettings } from "../../core/commands"
 import { effectiveThreshold } from "../../core/threshold"
 import { loadConfig, withSessionSettings } from "../../core/config"
-import { contextInfoFor, ensureState } from "./hooks"
+import { contextInfoFor, defaultSessionState, ensureState } from "./hooks"
 import type { LedgerLine, NMessage, RolloverConfig, SessionState } from "../../core/types"
 import type { StorePort } from "../../core/ports"
 
@@ -19,6 +19,13 @@ export interface CtlDeps {
   lastMessages: Map<string, NMessage[]>
   /** Session model label used only when no extraction model is configured. */
   sessionModel?: (sid: string) => string | null
+  /**
+   * Fired when a command transitions the session from inactive to active
+   * (bare `/rollover` or `/rollover on` when not running yet). Wired by the
+   * plugin to an immediate catch-up extraction so the ledger is built from
+   * the conversation context that already exists.
+   */
+  onActivate?: (sid: string) => void
 }
 
 export async function runCtl(deps: CtlDeps, sid: string, text: string): Promise<string> {
@@ -36,15 +43,35 @@ async function executeCtl(deps: CtlDeps, sid: string, text: string): Promise<str
   if (parsed.kind === "status") return readStatus(deps, cfg, sid)
   if (parsed.kind === "show") return readShow(deps, cfg, sid, parsed.raw === true)
 
-  // Per-session opt-in (2026-11-17): on/off writes `settings.enabled`, which
-  // wins over every config layer for THIS session only. Fresh sessions start
-  // disabled (the built-in config default is off); `/rollover on` turns the
-  // full pipeline on for this chat alone.
-  if (parsed.kind === "enable" || parsed.kind === "disable") {
+  // Activation (2026-11-17): bare `/rollover` and `/rollover on` both enable
+  // the session (settings.enabled wins over every config layer). A session
+  // that is already active is never rewritten — the reply says so and nothing
+  // is written. A transition fires onActivate so the ledger catches up with
+  // the context that already exists (mid-chat activation).
+  if (parsed.kind === "activate" || parsed.kind === "enable") {
+    const current = await ensureState(deps.store, sid)
+    const effective = withSessionSettings(cfg, current)
+    if (effective.mode === "auto") {
+      const text = statusFor(deps, effective, current, sid, await deps.store.readLedger(sid))
+      return parsed.kind === "activate" ? `${text}\n\n${MSG_ALREADY_ACTIVE}` : text
+    }
+    const updated: SessionState = {
+      ...current,
+      settings: { ...current.settings, enabled: true },
+    }
+    await deps.store.writeState(sid, updated)
+    deps.onActivate?.(sid)
+    const text = statusFor(deps, withSessionSettings(cfg, updated), updated, sid, await deps.store.readLedger(sid))
+    return parsed.kind === "activate" ? `${text}\n\n${MSG_ACTIVATED}` : text
+  }
+
+  // `/rollover off` is the pure opt-out: it stops the pipeline for this
+  // session (extraction, tracking) and wins over every config layer.
+  if (parsed.kind === "disable") {
     const current = await ensureState(deps.store, sid)
     const updated: SessionState = {
       ...current,
-      settings: { ...current.settings, enabled: parsed.kind === "enable" },
+      settings: { ...current.settings, enabled: false },
     }
     await deps.store.writeState(sid, updated)
     return statusFor(deps, withSessionSettings(cfg, updated), updated, sid, await deps.store.readLedger(sid))
@@ -74,13 +101,17 @@ async function executeCtl(deps: CtlDeps, sid: string, text: string): Promise<str
 }
 
 async function readStatus(deps: CtlDeps, cfg: RolloverConfig, sid: string): Promise<string> {
-  const state = await ensureState(deps.store, sid)
+  // Read-only: a status query must never materialize session state.
+  const state = (await deps.store.readState(sid)) ?? defaultSessionState(sid)
   return statusFor(deps, withSessionSettings(cfg, state), state, sid, await deps.store.readLedger(sid))
 }
 
 function statusFor(deps: CtlDeps, cfg: RolloverConfig, state: SessionState, sid: string, lines: LedgerLine[]): string {
   const messages = deps.lastMessages.get(sid) ?? []
-  const packed = packFor(cfg, state, lines, messages)
+  // The active render exists only while rollover runs (auto): in every other
+  // mode nothing renders, so the card shows "—" instead of a packed preview
+  // (2026-11-17: render must not start before activation).
+  const packed = cfg.mode === "auto" ? packFor(cfg, state, lines, messages) : null
   const context = contextInfoFor(state, messages)
   const threshold = effectiveThreshold({
     cfg,
@@ -97,7 +128,7 @@ function statusFor(deps: CtlDeps, cfg: RolloverConfig, state: SessionState, sid:
     summaryModel: cfg.extractionModel ?? deps.sessionModel?.(sid) ?? null,
     recordCount: activeRecords(lines).length,
     epoch: state.epoch,
-    renderTokens: estimateTokens(packed.text),
+    renderTokens: packed ? estimateTokens(packed.text) : null,
     renderBudgetTokens: cfg.renderBudgetTokens,
     lastRollover: state.lastRollover
       ? { before: state.lastRollover.before, after: state.lastRollover.after, at: state.lastRollover.at }
@@ -106,7 +137,8 @@ function statusFor(deps: CtlDeps, cfg: RolloverConfig, state: SessionState, sid:
 }
 
 async function readShow(deps: CtlDeps, cfg: RolloverConfig, sid: string, raw: boolean): Promise<string> {
-  const state = await ensureState(deps.store, sid)
+  // Read-only: an inspection query must never materialize session state.
+  const state = (await deps.store.readState(sid)) ?? defaultSessionState(sid)
   const lines = await deps.store.readLedger(sid)
   const packed = packFor(cfg, state, lines, deps.lastMessages.get(sid) ?? [])
   const counts: Record<string, number> = {}

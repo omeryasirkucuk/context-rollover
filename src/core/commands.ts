@@ -2,6 +2,7 @@
 
 export type ParsedCommand =
   | { kind: "status" }
+  | { kind: "activate" }
   | { kind: "show"; raw?: boolean }
   | { kind: "enable" }
   | { kind: "disable" }
@@ -34,7 +35,11 @@ function parseNumberToken(tok: string): number | null {
 
 export function parseCommand(input: string): ParsedCommand {
   const tokens = input.trim().split(/\s+/).filter(Boolean)
-  if (tokens.length === 0) return { kind: "status" }
+  // Bare `/rollover` activates (2026-11-17): typing just the command means
+  // "turn rollover on for this chat" (auto mode). `/rollover status` stays
+  // the explicit status query. Whether the session is already active is
+  // decided by the executor — it owns the current state.
+  if (tokens.length === 0) return { kind: "activate" }
   if (tokens.length === 1 && tokens[0].toLowerCase() === "status") return { kind: "status" }
   if (tokens[0].toLowerCase() === "show") {
     if (tokens.length === 1) return { kind: "show" }

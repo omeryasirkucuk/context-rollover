@@ -67,7 +67,7 @@ Updates: `opencode plugin update context-rollover`.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `mode` | `"off" \| "metrics_only" \| "auto"` | `"auto"` | `off` disables everything; `metrics_only` records metrics without swapping; `auto` is full behavior |
+| `mode` | `"off" \| "metrics_only" \| "auto"` | `"off"` | Every session starts off and opts in per chat with `/rollover` (or `/rollover on`); a rollover.json / `ROLLOVER_MODE` can still set a project- or global-wide default. `off` disables everything; `metrics_only` records metrics without swapping; `auto` is full behavior |
 | `thresholdTokens` | number | *computed* | Swap threshold; computed from the model's context limit (`thresholdRatio`, capped/floored) when omitted |
 | `tailN` | number | `0` | Prompts kept verbatim after a swap (`0–20`) |
 | `renderBudgetTokens` | number | `4000` | Token budget for the rendered `<rollover_context>` block (per-session override: `/rollover --render 10k`) |
@@ -79,7 +79,8 @@ Updates: `opencode plugin update context-rollover`.
 
 | Input | Effect |
 |---|---|
-| `/rollover` or `/rollover status` | Status card — mode, threshold, context, ledger size, last rollover |
+| `/rollover` | Activate auto mode for this session (status card + confirmation). When already running it says so and changes nothing |
+| `/rollover status` | Status card only — mode, threshold, context, ledger size, last rollover |
 | `/rollover show` | Active ledger records + invalidations |
 | `/rollover 80k` | Set per-session threshold (validated against the model limit) |
 | `/rollover -n 5` | Tail prompts kept verbatim after a swap (`0–20`) |

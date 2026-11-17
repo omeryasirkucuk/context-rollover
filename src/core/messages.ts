@@ -38,10 +38,15 @@ export interface StatusTextInput {
   summaryModel: string | null
   recordCount: number
   epoch: number
-  renderTokens: number
+  /** null = no active render (rollover is not running) → the card shows "—". */
+  renderTokens: number | null
   renderBudgetTokens: number
   lastRollover: { before: number; after: number; at: number } | null
 }
+
+/** `/rollover` (bare) reply notes (2026-11-17: bare command = activate). */
+export const MSG_ACTIVATED = "Rollover activated (auto mode)."
+export const MSG_ALREADY_ACTIVE = "Rollover is already active."
 
 /** `/rollover status` (spec §9.3 fixed English format). */
 export function statusText(input: StatusTextInput): string {
@@ -52,13 +57,20 @@ export function statusText(input: StatusTextInput): string {
   const last = input.lastRollover
     ? `${formatTokens(input.lastRollover.before)} → ${formatTokens(input.lastRollover.after)} (${formatClock(input.lastRollover.at)})`
     : "—"
+  // The active render exists only while rollover runs (auto): before
+  // activation nothing is rendered, so the card shows "—" instead of a
+  // packed preview (2026-11-17).
+  const render =
+    input.renderTokens === null
+      ? "—"
+      : `≈ ${formatTokens(input.renderTokens)} / ${formatTokens(input.renderBudgetTokens)}`
   return [
     MODE_LABEL[input.mode],
     `Threshold: ${formatTokens(input.thresholdValue)} (model limit: ${limit}, source: ${input.thresholdSource})`,
     `Current context: ${formatTokens(input.contextTokens)} (${percent}% of threshold)`,
     `Tail: last ${input.tailN} prompts`,
     `Summary model: ${summary}${warning}`,
-    `Ledger: ${input.recordCount} records, epoch ${input.epoch}, active render ≈ ${formatTokens(input.renderTokens)} / ${formatTokens(input.renderBudgetTokens)}`,
+    `Ledger: ${input.recordCount} records, epoch ${input.epoch}, active render ${render}`,
     `Last rollover: ${last}`,
   ].join("\n")
 }
