@@ -336,6 +336,11 @@ export async function runImmediateSwap(
         toolsOpen: hasOpenTools(msgs2),
         contextTokens: context.tokens,
         anchor: "lastUser",
+        // Explicit user-triggered swap: re-evaluate even when the automatic
+        // flow already decided for this prompt (its pre-turn evaluation ran
+        // while the context was below the threshold and marked it decided —
+        // without this the immediate swap can never complete, 2026-11-18).
+        ignoreDecided: true,
       })
       if (d.action !== "swap") {
         await notify(`Rollover did not complete: ${d.action === "defer" ? d.reason : "conditions not met"}. The automatic mechanism will retry on later turns.`)

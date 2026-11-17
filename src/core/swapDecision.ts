@@ -18,6 +18,16 @@ export interface SwapContext {
    * where the last message is the assistant's finished reply.
    */
   anchor?: "last" | "lastUser"
+  /**
+   * Explicit user-triggered re-decision (2026-11-18 bugfix): the automatic
+   * flow records one decision per user prompt — a prompt marked decided while
+   * the context was still below the threshold stays decided there, so once the
+   * threshold is crossed (mid-turn), re-evaluating the same prompt finds it
+   * "already decided" and the swap can never complete on the immediate path.
+   * The `/rollover` command's immediate swap passes this to re-evaluate
+   * regardless; the automatic context hook keeps the one-decision gate.
+   */
+  ignoreDecided?: boolean
 }
 
 export type SwapDecision =
@@ -36,7 +46,7 @@ export function decideSwap(ctx: SwapContext): SwapDecision {
     return { action: "none", markDecided: false, userMessageId: id }
   }
   // Condition 2: not already decided.
-  if (st.decidedUserMessageIds.includes(last.id)) {
+  if (!ctx.ignoreDecided && st.decidedUserMessageIds.includes(last.id)) {
     return { action: "none", markDecided: false, userMessageId: last.id }
   }
   // Condition 3: at least one prior completed assistant turn.

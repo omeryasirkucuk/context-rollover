@@ -132,6 +132,12 @@ bun test          # 343 tests
 bun run typecheck
 ```
 
+## Changelog
+
+### 0.1.14
+
+- **Fix: the `/rollover` command's immediate swap now completes when the threshold is already exceeded.** The automatic flow records one decision per user prompt; a prompt that was evaluated while the context was still below the threshold stayed marked decided, so re-checking it after the threshold was crossed returned *"conditions not met"* and the swap never ran. Explicit user-triggered swaps (`/rollover …` while `Current context ≥ Threshold`) now re-evaluate regardless — the one-decision-per-prompt gate still applies to the automatic mechanism, so nothing changes for turns that don't cross the threshold.
+
 ## License
 
 [MIT](https://www.npmjs.com/package/context-rollover)
