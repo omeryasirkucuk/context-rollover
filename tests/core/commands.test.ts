@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test"
 import { parseCommand, validateSettings } from "../../src/core/commands"
 
+describe("parseCommand bare /rollover", () => {
+  test("empty input → activate", () => {
+    expect(parseCommand("")).toEqual({ kind: "activate" })
+    expect(parseCommand("   ")).toEqual({ kind: "activate" })
+  })
+  test("explicit status stays status", () => {
+    expect(parseCommand("status")).toEqual({ kind: "status" })
+  })
+})
+
 describe("parseCommand --render", () => {
   test("k suffix", () => {
     expect(parseCommand("--render 10k")).toEqual({ kind: "settings", renderBudgetTokens: 10_000 })

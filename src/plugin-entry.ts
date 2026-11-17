@@ -18,6 +18,14 @@ export default define({
         env: deps.env,
         modelLimits: deps.modelLimits,
         lastMessages: deps.lastMessages,
+        // Bare `/rollover` or `/rollover on` activating a session triggers an
+        // immediate catch-up extraction: the ledger is built from the context
+        // that already exists (mid-chat activation). Fire-and-forget — the
+        // command replies at once, and runNow coalesces with the
+        // immediate-swap path when the threshold is exceeded too.
+        onActivate: (sid: string) => {
+          void deps.scheduler.runNow(sid).catch((error) => deps.log(`[rollover] activation catch-up failed: ${String(error)}`))
+        },
       }
 
       // context hook: resolve the model limit, then run the swap/view flow and
@@ -108,7 +116,7 @@ export default define({
       yield* ctx.command.transform((editor) => {
         editor.add({
           name: "rollover",
-          description: "Rollover: durum ve ayarlar",
+          description: "Rollover: aktifleştir / durum ve ayarlar",
           execute: (input) =>
             Effect.gen(function* () {
               const session = yield* ctx.session.get({ sessionID: input.sessionID }).pipe(Effect.orDie)
@@ -131,7 +139,7 @@ export default define({
         editor.add({
           name: "rollover_ctl",
           description:
-            "Read or change Rollover state for this session. Pass the text after the /rollover command as args (empty for status, 'show', 'on', 'off', '150k', or '-n 5'). A threshold or tail setting ('150k', '-n 5') also enables rollover for this session; 'on'/'off' are the pure toggles.",
+            "Read or change Rollover state for this session. Pass the text after the /rollover command as args (empty activates auto mode, 'status', 'show', 'on', 'off', '150k', or '-n 5'). A threshold or tail setting ('150k', '-n 5') also enables rollover for this session; 'on'/'off' are the pure toggles.",
           input: Schema.Struct({ args: Schema.String.annotate({ description: "Arguments for the /rollover command" }) }),
           execute: (input, toolContext) =>
             Effect.gen(function* () {

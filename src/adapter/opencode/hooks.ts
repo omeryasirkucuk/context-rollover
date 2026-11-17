@@ -105,12 +105,21 @@ export async function handleUsage(deps: HookDeps, ev: unknown): Promise<void> {
   if (!sid) return
   const tokens = e?.data?.tokens
   if (!tokens) return
-  const ctx = tokens.input + (tokens.cache?.read ?? 0) + (tokens.cache?.write ?? 0)
+  // Rollover that is off for this session tracks nothing: no context counter,
+  // no state materialization (2026-11-17 bugfix — background steps like title
+  // generation used to grow the "Current context" of chats where rollover was
+  // never activated).
   try {
-    const st = await ensureState(deps.store, sid)
+    const st = await deps.store.readState(sid)
+    const cfg = withSessionSettings(
+      loadConfig({ homeConfigDir: deps.homeConfigDir, projectDir: deps.projectDir, env: deps.env }),
+      st,
+    )
+    if (cfg.mode === "off") return
+    const current = st ?? (await ensureState(deps.store, sid))
     await deps.store.writeState(sid, {
-      ...st,
-      lastContextTokens: ctx,
+      ...current,
+      lastContextTokens: tokens.input + (tokens.cache?.read ?? 0) + (tokens.cache?.write ?? 0),
       lastContextSource: "usage",
       lastContextAt: Date.now(),
     })
@@ -131,8 +140,12 @@ export async function trackTouchedFile(deps: HookDeps, ev: unknown): Promise<voi
   const rawPath = input?.path
   if (!rawPath) return
   try {
+    // Rollover that is off for this session tracks nothing: no touched-file
+    // bookkeeping, no state materialization (2026-11-17 bugfix).
     const st = await deps.store.readState(sid)
     if (!st) return
+    const cfg = withSessionSettings(loadConfig({ homeConfigDir: deps.homeConfigDir, projectDir: deps.projectDir, env: deps.env }), st)
+    if (cfg.mode === "off") return
     const rel = rawPath.startsWith(deps.projectDir) ? rawPath.slice(deps.projectDir.length + 1) : rawPath
     const turn = Object.values(st.touchedFiles).reduce((a, v) => Math.max(a, v.turn), 0) + 1
     await deps.store.writeState(sid, {
